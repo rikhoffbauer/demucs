@@ -524,7 +524,7 @@ class HTDemucs(nn.Module):
                     f"training length {training_length}")
         return training_length
 
-    def forward(self, mix):
+    def forward(self, mix, spec):
         length = mix.shape[-1]
         length_pre_pad = None
         if self.use_train_segment:
@@ -535,8 +535,9 @@ class HTDemucs(nn.Module):
                 if mix.shape[-1] < training_length:
                     length_pre_pad = mix.shape[-1]
                     mix = F.pad(mix, (0, training_length - length_pre_pad))
-        z = self._spec(mix)
-        mag = self._magnitude(z).to(mix.device)
+        
+        z = spec
+        mag = self._magnitude(z)
         x = mag
 
         B, C, Fq, T = x.shape
@@ -577,7 +578,7 @@ class HTDemucs(nn.Module):
             if idx == 0 and self.freq_emb is not None:
                 # add frequency embedding to allow for non equivariant convolutions
                 # over the frequency axis.
-                frs = torch.arange(x.shape[-2], device=x.device)
+                frs = torch.arange(x.shape[-2])
                 emb = self.freq_emb(frs).t()[None, :, :, None].expand_as(x)
                 x = x + self.freq_emb_scale * emb
 
@@ -625,36 +626,30 @@ class HTDemucs(nn.Module):
         x = x.view(B, S, -1, Fq, T)
         x = x * std[:, None] + mean[:, None]
 
-        # to cpu as mps doesnt support complex numbers
-        # demucs issue #435 ##432
-        # NOTE: in this case z already is on cpu
-        # TODO: remove this when mps supports complex numbers
-        x_is_mps_xpu = x.device.type in ["mps", "xpu"]
-        x_device = x.device
-        if x_is_mps_xpu:
-            x = x.cpu()
+        #zout = self._mask(z, x)
+        # if self.use_train_segment:
+        #     if self.training:
+        #         x = self._ispec(zout, length)
+        #     else:
+        #         x = self._ispec(zout, length)
+        # else:
+        #     x = self._ispec(zout, length)
 
-        zout = self._mask(z, x)
-        if self.use_train_segment:
-            if self.training:
-                x = self._ispec(zout, length)
-            else:
-                x = self._ispec(zout, training_length)
-        else:
-            x = self._ispec(zout, length)
-
-        # back to mps device
-        if x_is_mps_xpu:
-            x = x.to(x_device)
+        # # back to mps device
+        # if x_is_mps_xpu:
+        #     x = x.to(x_device)
 
         if self.use_train_segment:
             if self.training:
                 xt = xt.view(B, S, -1, length)
             else:
-                xt = xt.view(B, S, -1, training_length)
+                xt = xt.reshape(B, S, -1, length)
         else:
             xt = xt.view(B, S, -1, length)
         xt = xt * stdt[:, None] + meant[:, None]
+
+        return x, xt
+
         x = xt + x
         if length_pre_pad:
             x = x[..., :length_pre_pad]
