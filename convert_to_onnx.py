@@ -1,14 +1,8 @@
-from numbers import Number
-from typing import List, Optional
-from demucs.apply import apply_model
 from demucs.htdemucs import HTDemucs
-from demucs.hdemucs import HDemucs
 import torch.onnx
-from torch import Tensor, compile
 import math
 from demucs.hdemucs import pad1d
 from demucs.spec import spectro
-from demucs import pretrained
 from demucs.states import load_model
 
 def _spec(x, hop_length, nfft):
@@ -44,7 +38,6 @@ url = "https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/955717e8-8726e21
 th = torch.hub.load_state_dict_from_url(
             url, check_hash=True) # type: ignore
 
-#th['klass'] = HDemucs
 assert th['klass'] == HTDemucs
 
 model = load_model(th)
