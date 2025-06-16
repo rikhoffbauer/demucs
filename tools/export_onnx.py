@@ -36,16 +36,14 @@ def export_model(name: str, out_dir: Path):
     mix = torch.randn(1, model.audio_channels, 10 * model.samplerate)
     spec = _spec(mix, model.hop_length, model.nfft)
     out_path = out_dir / f"{name}.onnx"
-    torch.onnx.export(
+    export_output = torch.onnx.dynamo_export(
         model,
-        (mix, spec),
-        out_path,
-        export_params=True,
+        mix,
+        spec,
         opset_version=20,
-        dynamo=True,
-        verify=True,
-        report=True,
+        dynamic=False,  # set to True if variable-length input is required
     )
+    export_output.save(out_path)
     print(f"Exported {name} to {out_path}")
 
 
