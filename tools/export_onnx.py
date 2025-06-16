@@ -41,7 +41,7 @@ def export_model(name: str, out_dir: Path):
         mix,
         spec,
         opset_version=20,
-        dynamic=False,  # set to True if variable-length input is required
+        dynamic=True,  # set to True if variable-length input is required
     )
     export_output.save(out_path)
     print(f"Exported {name} to {out_path}")
